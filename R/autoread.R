@@ -7,7 +7,7 @@ autoread <- function(file,na=c('','.','(null)','NULL','NA'),...){
     # try to read as a delimited file via fread
     txargs <- args[intersect(names(args),names(formals(fread)))];
     txargs$na.strings <- na;
-    out <- try(do.call(fread,c(list(input=file),txargs))
+    out <- try(as_tibble(do.call(fread,c(list(input=file),txargs)))
                ,silent = T);
     if(!is(out,'try-error')) return(out);
     cat('\nGuessed encoding:\n');print(enc);
@@ -17,11 +17,21 @@ autoread <- function(file,na=c('','.','(null)','NULL','NA'),...){
   xlargs <- args[intersect(names(args),names(formals(read_xls)))];
   xlargs$na <- na;
   # xlsx
-  out <- try(do.call(read_xlsx,c(list(path=file),xlargs)),silent = T);
-  if(!is(out,'try-error')) return(out);
+  sheets <- try(.Call('readxl_xlsx_sheets',PACKAGE='readxl',file),silent=F);
+  if(!is(sheets,'try-error')){
+    if(length(sheets)>1 && !'sheet' %in% names(xlargs)) warning(
+      "\nMultiple sheets found:\n",paste(sheets,collapse=', ')
+      ,"\nReading in the first sheet. If you want a different one"
+      ,"\nplease specify a 'sheet' argument")
+    return(do.call(read_xlsx,c(list(path=file),xlargs)));}
   # xls
-  out <- try(do.call(read_xls,c(list(path=file),xlargs)),silent = T);
-  if(!is(out,'try-error')) return(out);
+  sheets <- try(.Call('readxl_xls_sheets',PACKAGE='readxl',file),silent=F);
+  if(!is(sheets,'try-error')){
+    if(length(sheets)>1 && !'sheet' %in% names(xlargs)) warning(
+      "Multiple sheets found: ",paste(sheets,collapse=', ')
+      ,"\nReading in the first sheet. If you want a different one"
+      ,"\nplease specify a 'sheet' argument")
+    return(do.call(read_xls,c(list(path=file),xlargs)));}
   # need to unzip the file?
   out <- try(unzip(file,list=T));
   if(!is(out,'try-error')){
